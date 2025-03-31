@@ -98,9 +98,11 @@ export default function HomePage() {
           {data.length > 0 ? (
             data.map((item) => (
               <div key={item.id} className="border-b pb-4 last:border-b-0">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {item.title}
-                </h3>
+                <Link href={`/blog/${item.id}`}>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {item.title}
+                  </h3>
+                </Link>
                 <p className="text-gray-700 mt-2">{item.description}</p>
                 <p className="mt-2 text-sm text-gray-500">
                   Category: {item.categories?.name || "Uncategorized"}
