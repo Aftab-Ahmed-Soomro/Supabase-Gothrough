@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { toast, ToastContainer } from "react-toastify";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -21,7 +22,7 @@ const UserDashboard = () => {
   const [user, setUser] = useState(null); 
   const router = useRouter()
 
-  // Get current user (added)
+  // Get current user  
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -33,7 +34,7 @@ const UserDashboard = () => {
     getCurrentUser();
   }, []);
 
-  // Fetch data
+  // Fetch Blogs
   const fetchData = async () => {
     try {
       if (!user) return; 
@@ -50,13 +51,61 @@ const UserDashboard = () => {
     }
   };
 
+  // Realtime subscription for blogs
+  useEffect(() => {
+    if (!user) return;
+    
+    // Subscribe to changes in the blogs table
+    const blogsSubscription = supabase
+      .channel('blogs-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',  // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'blogs',
+          filter: `user_id=eq.${user.id}` // Only listen to this user's blogs
+        },
+        (payload) => {
+          // Handle different types of changes
+          if (payload.eventType === 'INSERT') {
+            // Add new blog to the state
+            setData(prevData => [...prevData, {...payload.new, categories: {name: payload.new.category_name || 'Uncategorized'}}]);
+            toast.success("Blog Added Successfully")
+          } 
+          else if (payload.eventType === 'DELETE') {
+            // Remove deleted blog from state
+            setData(prevData => prevData.filter(item => item.id !== payload.old.id));
+            toast.success("Blog Deleted Successfully")
+          } 
+          // else if (payload.eventType === 'UPDATE') {
+          //   // Update modified blog in state
+          //   setData(prevData => 
+          //     prevData.map(item => 
+          //       item.id === payload.new.id 
+          //         ? {...payload.new, categories: {name: payload.new.category_name || 'Uncategorized'}} 
+          //         : item
+          //     )
+          //   );
+          //   toast.success("Blog Updated Successfully")
+          // }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on component unmount
+    return () => {
+      supabase.removeChannel(blogsSubscription);
+    };
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       fetchData();
     } 
   }, [user]); 
 
-  // Fetch data
+  // Fetch Categories
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase.from("categories").select("*");
@@ -68,6 +117,40 @@ const UserDashboard = () => {
       setLoading(false);
     }
   };
+
+  // Realtime subscription for categories
+  useEffect(() => {
+    const categoriesSubscription = supabase
+      .channel('categories-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'categories'
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setCategories(prevCategories => [...prevCategories, payload.new]);
+          } else if (payload.eventType === 'DELETE') {
+            setCategories(prevCategories => 
+              prevCategories.filter(cat => cat.id !== payload.old.id)
+            );
+          } else if (payload.eventType === 'UPDATE') {
+            setCategories(prevCategories => 
+              prevCategories.map(cat => 
+                cat.id === payload.new.id ? payload.new : cat
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(categoriesSubscription);
+    };
+  }, []);
 
   useEffect(() => {
     fetchCategories();
@@ -88,7 +171,7 @@ const UserDashboard = () => {
       setTitle("");
       setDescription("");
       setSelectedCategory("");
-      fetchData(); // Refresh data after insert
+      // fetchData(); its commented bcz realtime manages it
     } catch (error) {
       console.error("Error inserting data:", error.message);
     } finally {
@@ -110,8 +193,10 @@ const UserDashboard = () => {
         .eq("user_id", user.id); 
 
       if (error) throw error;
-
-      setData((prevData) => prevData.filter((item) => item.id !== id));
+      
+      // setData((prevData) => prevData.filter((item) => item.id !== id)); 
+      // toast.success("Blog Deleted Successfully")
+      
     } catch (error) {
       console.error("Error deleting data:", error.message);
     } finally {
@@ -232,6 +317,7 @@ const UserDashboard = () => {
           </div>
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 };

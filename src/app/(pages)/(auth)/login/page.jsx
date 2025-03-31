@@ -15,9 +15,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
       {/* Navbar */}
-      <nav className="w-full max-w-3xl p-4 flex justify-between bg-white shadow-md rounded-xl">
+      <nav className="w-full max-w-md p-4 flex justify-between bg-white shadow-md rounded-xl">
         <Link href="/" className="font-semibold text-lg">Home</Link>
-        <Link href="/private" className="font-semibold text-lg">Private</Link>
         <Link href="/login" className="font-semibold text-lg">Login</Link>
       </nav>
       
